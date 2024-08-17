@@ -5,6 +5,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -17,6 +19,8 @@ import android.util.Log
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -36,6 +40,8 @@ class MainActivity : AppCompatActivity() {
     private val rssiTextView by lazy {
         findViewById<TextView>(R.id.rssiTextView)
     }
+    /* 当たり判定時の通知チャンネルID */
+    private val CHANNEL_ID = "hit_notification_channel"
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +66,22 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        // 通知チャンネルを作成
+        createNotificationChannel()
+    }
+
+    /* 当たりイベント発生時の通知チャンネルを作成 */
+    private fun createNotificationChannel() {
+        val name = "Hit Notification"
+        val descriptionText = "Notification for hit events"
+        val importance = NotificationManager.IMPORTANCE_DEFAULT
+        val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+            description = descriptionText
+        }
+        val notificationManager: NotificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
@@ -205,6 +227,8 @@ class MainActivity : AppCompatActivity() {
                 // 当たり判定をチェックして表示
                 if (data.judgeHit) {
                     hitTextView.text = "当たり！"
+                    // 通知を表示
+                    showNotification()
                     vis_cnt = 0
                 } else if(vis_cnt >= 50) {
                     hitTextView.text = ""
@@ -212,6 +236,19 @@ class MainActivity : AppCompatActivity() {
                 vis_cnt++
                 // sensorTextView.text = characteristic?.getStringValue(0) ?: return@runOnUiThread
             }
+        }
+    }
+
+    /* 当たり判定が出たときに通知を表示する */
+    private fun showNotification() {
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.notification_icon)
+            .setContentTitle("Fishing Buddy")
+            .setContentText("当たりです！")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+        with(NotificationManagerCompat.from(this)) {
+            notify(1, builder.build())
         }
     }
 
@@ -299,6 +336,7 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.BLUETOOTH_ADMIN,
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.POST_NOTIFICATIONS,
         )
 
         /** BLEのサービスUUID */
