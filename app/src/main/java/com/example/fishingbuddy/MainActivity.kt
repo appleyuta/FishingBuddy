@@ -24,6 +24,10 @@ import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
+    /** 当たり判定結果を表示するTextView */
+    private val hitTextView by lazy {
+        findViewById<TextView>(R.id.hitTextView)
+    }
     /** 加速度センサーとジャイロセンサーの値を表示するTextView */
     private val sensorTextView by lazy {
         findViewById<TextView>(R.id.sensorTextView)
@@ -168,6 +172,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // 当たり判定表示有無の制御カウンター（設計として良い方法でないため、出来れば改善したい）
+        private var vis_cnt = 0
         override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
             super.onCharacteristicChanged(gatt, characteristic)
 
@@ -195,6 +201,15 @@ class MainActivity : AppCompatActivity() {
                 sb.append(" accY: ${String.format("%.2f", data.accY)}")
                 sb.append(" accZ: ${String.format("%.2f", data.accZ)}\n")
                 sensorTextView.text = sb.toString()
+
+                // 当たり判定をチェックして表示
+                if (data.judgeHit) {
+                    hitTextView.text = "当たり！"
+                    vis_cnt = 0
+                } else if(vis_cnt >= 50) {
+                    hitTextView.text = ""
+                }
+                vis_cnt++
                 // sensorTextView.text = characteristic?.getStringValue(0) ?: return@runOnUiThread
             }
         }
@@ -204,13 +219,14 @@ class MainActivity : AppCompatActivity() {
     private data class Data(
         val gyroX: Float, val gyroY: Float, val gyroZ: Float,
         val accX: Float, val accY: Float, val accZ: Float,
+        val judgeHit: Boolean,
     ) {
         companion object {
             /**
              * BLEから飛んできたデータをDataクラスにパースする
              */
             fun parse(data: ByteArray?): Data? {
-                if (data == null || data.size < 12) {
+                if (data == null || data.size < 13) {
                     Log.e("Data", "Invalid data size: ${data?.size}")
                     return null
                 }
@@ -231,12 +247,15 @@ class MainActivity : AppCompatActivity() {
                     val accY = float16ToFloat32(accYBytes.short)
                     val accZ = float16ToFloat32(accZBytes.short)
 
+                    // 当たり判定
+                    val judgeHit = data[12].toInt() == 1
+
                     Log.d(
                         "Data",
                         "Parsed data: gyroX=$gyroX, gyroY=$gyroY, gyroZ=$gyroZ, accX=$accX, accY=$accY, accZ=$accZ"
                     )
 
-                    return Data(gyroX, gyroY, gyroZ, accX, accY, accZ)
+                    return Data(gyroX, gyroY, gyroZ, accX, accY, accZ, judgeHit)
                 } catch (e: Exception) {
                     Log.e("Data", "Error parsing data", e)
                     return null
