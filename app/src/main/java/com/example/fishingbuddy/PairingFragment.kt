@@ -56,6 +56,9 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
     // BluetoothLeScannerのインスタンス
     private lateinit var bluetoothLeScanner: BluetoothLeScanner
 
+    // BluetoothGattのインスタンス
+    private var bluetoothGatt: BluetoothGatt? = null
+
     // 紐づけ結果を表示するTextView
     private lateinit var pairingResultTextView: TextView
 
@@ -111,7 +114,14 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
     override fun onDestroyView() {
         super.onDestroyView()
         // BLEスキャンを停止
-        bluetoothLeScanner.stopScan(scanCallback)
+        if (::bluetoothLeScanner.isInitialized) {
+            bluetoothLeScanner.stopScan(scanCallback)
+        }
+        // BLE接続をクリーンアップ
+        if(bluetoothGatt != null) {
+            bluetoothGatt?.close()
+            bluetoothGatt = null
+        }
     }
 
     /** BLEのスキャンを開始 */
@@ -160,9 +170,9 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
     }
     // デバイスに接続する関数
     private fun connectToDevice(device: BluetoothDevice) {
-        val bluetoothGatt = device.connectGatt(requireContext(), false, bluetoothGattCallback)
-        val resultConnectGatt = bluetoothGatt.connect()
-        if (resultConnectGatt) {
+        bluetoothGatt = device.connectGatt(requireContext(), false, bluetoothGattCallback)
+        val resultConnectGatt = bluetoothGatt?.connect()
+        if (resultConnectGatt == true) {
             Log.d(TAG, "Success to connect gatt.")
         } else {
             Log.w(TAG, "Failed to connect gatt.")
@@ -174,6 +184,11 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Connected to GATT server.")
                 gatt.discoverServices()
+            } else if (status != BluetoothGatt.GATT_SUCCESS) {
+                Log.e(TAG, "Connection failed with status: $status")
+                activity?.runOnUiThread {
+                    Toast.makeText(context, "ペアリング失敗", Toast.LENGTH_SHORT).show()
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected from GATT server.")
             }
@@ -191,9 +206,11 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
                                 // 接続を解除
                                 gatt.disconnect()
                             }
-
                         }
                     }
+                }
+                activity?.runOnUiThread {
+                    Toast.makeText(context, "ペアリング成功", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 Log.w(TAG, "onServicesDiscovered received: $status")

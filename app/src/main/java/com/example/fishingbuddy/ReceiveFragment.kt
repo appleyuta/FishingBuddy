@@ -22,12 +22,13 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnimationUtils
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
 import androidx.fragment.app.Fragment
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -55,6 +56,10 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
     private lateinit var sensorTextView: TextView
     /** RSSI(電波強度)を表示するTextView */
     private lateinit var rssiTextView: TextView
+    /** 測定中を表示するImageView */
+    private lateinit var measurementImageView: ImageView
+    /** 当たり判定を表示するImageView */
+    private lateinit var hitImageView: ImageView
 
     /* 当たり判定時の通知チャンネルID */
     private val CHANNEL_ID = "hit_notification_channel"
@@ -72,6 +77,8 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
         hitTextView = view.findViewById(R.id.hitTextView)
         sensorTextView = view.findViewById(R.id.sensorTextView)
         rssiTextView = view.findViewById(R.id.rssiTextView)
+        hitImageView = view.findViewById(R.id.hitImageView)
+        measurementImageView = view.findViewById(R.id.measurementImageView)
 
         // Initialize Bluetooth
         val bluetoothManager = requireContext().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -83,7 +90,6 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
             activity?.finish()
         }
 
-        Log.v("fsiehfpoewfhpoew", "passed!")
         // Check for permissions
         if (allPermissionsGranted()) {
             bleScanStart()
@@ -158,6 +164,18 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
             }
             return
         }
+
+        // ペアリング状態チェック
+        val sharedPreferences = requireContext().getSharedPreferences("BLE_PREFS", Context.MODE_PRIVATE)
+        val serviceUUIDString = sharedPreferences.getString("SERVICE_UUID", null)
+        if (serviceUUIDString == null) {
+            activity?.runOnUiThread {
+                sensorTextView.text = "ペアリング未実施です。\nペアリング画面からデバイスを登録してください。"
+                rssiTextView.text = null
+            }
+            return
+        }
+
         val bluetoothLeScanner = adapter.bluetoothLeScanner
         // "Fishing Buddy BLE Server" というデバイス名のみの通知を受け取るように設定
         val scanFilter = ScanFilter.Builder()
@@ -210,6 +228,12 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected from GATT server.")
+                activity?.runOnUiThread {
+                    // 計測中の表示を停止
+                    stopMeasurementAnimation()
+                    // 当たり判定の表示を停止
+                    hideHitImage()
+                }
                 bluetoothGatt?.close()
                 bluetoothGatt = null
             }
@@ -247,6 +271,9 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                 gatt.writeDescriptor(descriptor)
 
                 Log.v("debug", "接続！")
+                activity?.runOnUiThread {
+                    startMeasurementAnimation()
+                }
             } else {
                 Log.w(TAG, "onServicesDiscovered received: $status")
             }
@@ -285,12 +312,18 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
 
                 // 当たり判定をチェックして表示
                 if (data.judgeHit) {
-                    hitTextView.text = "当たり！"
+                    // 計測中の表示を停止
+                    stopMeasurementAnimation()
+                    // アタリ画像を表示
+                    showHitImage()
                     // 通知を表示
                     showNotification()
                     vis_cnt = 0
                 } else if(vis_cnt >= 50) {
-                    hitTextView.text = ""
+                    // アタリ画像の表示を停止
+                    hideHitImage()
+                    // 計測中の表示を再開
+                    startMeasurementAnimation()
                 }
                 vis_cnt++
                 // sensorTextView.text = characteristic?.getStringValue(0) ?: return@runOnUiThread
@@ -299,12 +332,47 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
 
     }
 
+    /* 計測中のアニメーション画像を表示する */
+    private fun startMeasurementAnimation() {
+        hitTextView.text = "計測中..."
+        if (measurementImageView.visibility != View.VISIBLE) {
+            measurementImageView.visibility = View.VISIBLE
+            val shakeAnimation = AnimationUtils.loadAnimation(context, R.anim.shake)
+            measurementImageView.startAnimation(shakeAnimation)
+        }
+    }
+
+    /* 計測中のアニメーション画像を停止する */
+    private fun stopMeasurementAnimation() {
+        hitTextView.text = ""
+        if (measurementImageView.visibility == View.VISIBLE) {
+            measurementImageView.clearAnimation()
+            measurementImageView.visibility = View.GONE
+        }
+    }
+
+    /* 当たり判定画像を表示する */
+    private fun showHitImage() {
+        hitTextView.text = "アタリ！"
+        if (hitImageView.visibility != View.VISIBLE) {
+            hitImageView.visibility = View.VISIBLE
+        }
+    }
+
+    /* 当たり判定画像を非表示にする */
+    private fun hideHitImage() {
+        hitTextView.text = ""
+        if (hitImageView.visibility == View.VISIBLE) {
+            hitImageView.visibility = View.GONE
+        }
+    }
+
     /* 当たり判定が出たときに通知を表示する */
     private fun showNotification() {
         val builder = NotificationCompat.Builder(requireContext(), CHANNEL_ID)
             .setSmallIcon(R.drawable.notification_icon)
             .setContentTitle("Fishing Buddy")
-            .setContentText("当たりです！")
+            .setContentText("アタリです！")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
 
         with(NotificationManagerCompat.from(requireContext())) {

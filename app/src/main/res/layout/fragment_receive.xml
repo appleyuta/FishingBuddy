@@ -1,32 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- res/layout/fragment_receive.xml -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
-    android:gravity="center">
+    tools:context=".ReceiveFragment">
 
     <TextView
         android:id="@+id/hitTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="0dp"
-        android:textSize="30sp"
-        android:text="当たり判定"/>
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="50dp"
+        android:textSize="40sp"
+        android:text="アタリ判定"/>
+
+    <ImageView
+        android:id="@+id/measurementImageView"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_centerHorizontal="true"
+        android:contentDescription="measurement_image"
+        android:src="@drawable/measurement_image"
+        android:visibility="gone"
+        android:layout_marginTop="150dp" />
+
+    <ImageView
+        android:id="@+id/hitImageView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:contentDescription="hit_image"
+        android:src="@drawable/hit_image"
+        android:visibility="gone"
+        android:layout_marginTop="50dp" />
 
     <TextView
         android:id="@+id/sensorTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        android:textSize="20sp"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="500dp"
+        android:textSize="15sp"
         android:text="センサーデータの表示欄"/>
 
     <TextView
         android:id="@+id/rssiTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="100dp"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="550dp"
         android:text="rssi表示欄" />
 
-</LinearLayout>
+</RelativeLayout>

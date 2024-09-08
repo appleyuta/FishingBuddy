@@ -34,9 +34,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // デフォルトでペアリング画面を表示
+        // デフォルトで受信画面を表示
         if (savedInstanceState == null) {
-            navView.selectedItemId = R.id.navigation_pairing
+            navView.selectedItemId = R.id.navigation_receive
         }
 //        // 通知チャンネルを作成
 //        createNotificationChannel()
