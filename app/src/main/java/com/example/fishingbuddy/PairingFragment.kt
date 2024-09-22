@@ -5,10 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -29,7 +26,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import java.util.UUID
 
 // PairingFragment.kt
 class PairingFragment : Fragment(R.layout.fragment_pairing) {
@@ -81,8 +77,8 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
 
         pairingResultTextView = view.findViewById(R.id.pairing_result_text_view)
 
-        // 保存されたUUIDを読み込み、表示
-        displaySavedUUIDs()
+        // 保存されたMACAddressを読み込み、表示
+        displaySavedMACAddress()
 
         // パーミッションの確認
         if (allPermissionsGranted()) {
@@ -168,77 +164,26 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
             }
         }
     }
-    // デバイスに接続する関数
-    private fun connectToDevice(device: BluetoothDevice) {
-        bluetoothGatt = device.connectGatt(requireContext(), false, bluetoothGattCallback)
-        val resultConnectGatt = bluetoothGatt?.connect()
-        if (resultConnectGatt == true) {
-            Log.d(TAG, "Success to connect gatt.")
-        } else {
-            Log.w(TAG, "Failed to connect gatt.")
-        }
-    }
 
-    private val bluetoothGattCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.d(TAG, "Connected to GATT server.")
-                gatt.discoverServices()
-            } else if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.e(TAG, "Connection failed with status: $status")
-                activity?.runOnUiThread {
-                    Toast.makeText(context, "ペアリング失敗", Toast.LENGTH_SHORT).show()
-                }
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.d(TAG, "Disconnected from GATT server.")
-            }
-        }
-
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Services discovered: ${gatt.services}")
-                for (service in gatt.services) {
-                    for (characteristic in service.characteristics) {
-                        if (isAdded) {
-                            saveUUIDs(service.uuid, characteristic.uuid)
-                            activity?.runOnUiThread {
-                                pairingResultTextView.text = "ステータス: ペアリング成功\nService UUID:\n  ${service.uuid}\nCharacteristic UUID:\n  ${characteristic.uuid}"
-                                // 接続を解除
-                                gatt.disconnect()
-                            }
-                        }
-                    }
-                }
-                activity?.runOnUiThread {
-                    Toast.makeText(context, "ペアリング成功", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Log.w(TAG, "onServicesDiscovered received: $status")
-            }
-        }
-
-        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-
-        }
-    }
-
-    // UUIDをSharedPreferencesに保存する関数
-    private fun saveUUIDs(serviceUUID: UUID, characteristicUUID: UUID) {
+    // MACAddressをSharedPreferencesに保存する関数
+    private fun saveMACAddress(device: BluetoothDevice) {
         val sharedPreferences = requireContext().getSharedPreferences("BLE_PREFS", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
-        editor.putString("SERVICE_UUID", serviceUUID.toString())
-        editor.putString("CHARACTERISTIC_UUID", characteristicUUID.toString())
+        editor.putString("MAC_ADDRESS", device.address)
         editor.apply()
-        Log.d(TAG, "UUIDs saved: Service UUID = $serviceUUID, Characteristic UUID = $characteristicUUID")
+        Log.d(TAG, "MAC Address saved: MAC Address = ${device.address}")
+        activity?.runOnUiThread {
+            pairingResultTextView.text = "ステータス: ペアリング成功\nMAC Address: ${device.address}"
+            Toast.makeText(context, "ペアリング成功", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    // 保存されたUUIDを表示する関数
-    private fun displaySavedUUIDs() {
+    // 保存されたMACAddressを表示する関数
+    private fun displaySavedMACAddress() {
         val sharedPreferences = requireContext().getSharedPreferences("BLE_PREFS", Context.MODE_PRIVATE)
-        val serviceUUID = sharedPreferences.getString("SERVICE_UUID", null)
-        val characteristicUUID = sharedPreferences.getString("CHARACTERISTIC_UUID", null)
-        if (serviceUUID != null && characteristicUUID != null) {
-            pairingResultTextView.text = "ステータス: ペアリング済み\nService UUID:\n  $serviceUUID\nCharacteristic UUID:\n  $characteristicUUID"
+        val MAC_ADDRESS = sharedPreferences.getString("MAC_ADDRESS", null)
+        if (MAC_ADDRESS != null) {
+            pairingResultTextView.text = "ステータス: ペアリング済み\nMAC Address: $MAC_ADDRESS"
         }
     }
 
@@ -258,9 +203,9 @@ class PairingFragment : Fragment(R.layout.fragment_pairing) {
     private fun showPairingDialog(device: BluetoothDevice) {
         AlertDialog.Builder(requireContext())
             .setTitle("ペアリングの確認")
-            .setMessage("デバイス ${device.name} とペアリングしますか？")
+            .setMessage("${device.name}-${device.address} とペアリングしますか？")
             .setPositiveButton("はい") { _, _ ->
-                connectToDevice(device)
+                saveMACAddress(device)
             }
             .setNegativeButton("いいえ") { dialog, _ ->
                 dialog.dismiss()

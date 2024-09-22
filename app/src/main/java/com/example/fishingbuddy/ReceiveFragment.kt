@@ -64,6 +64,10 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
     /* 当たり判定時の通知チャンネルID */
     private val CHANNEL_ID = "hit_notification_channel"
 
+    /* BluetoothのUUID */
+    private val serviceUUID = UUID.fromString("a01d9034-21c3-4618-b9ee-d6d785b218c9")
+    private val characteristicUUID = UUID.fromString("f98bb903-5c5a-4f46-a0f2-dbbcf658b445")
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -167,8 +171,8 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
 
         // ペアリング状態チェック
         val sharedPreferences = requireContext().getSharedPreferences("BLE_PREFS", Context.MODE_PRIVATE)
-        val serviceUUIDString = sharedPreferences.getString("SERVICE_UUID", null)
-        if (serviceUUIDString == null) {
+        val macAddressString = sharedPreferences.getString("MAC_ADDRESS", null)
+        if (macAddressString == null) {
             activity?.runOnUiThread {
                 sensorTextView.text = "ペアリング未実施です。\nペアリング画面からデバイスを登録してください。"
                 rssiTextView.text = null
@@ -180,6 +184,7 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
         // "Fishing Buddy BLE Server" というデバイス名のみの通知を受け取るように設定
         val scanFilter = ScanFilter.Builder()
             .setDeviceName("Fishing Buddy BLE Server")
+            .setDeviceAddress(macAddressString)
             .build()
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
@@ -233,6 +238,7 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                     stopMeasurementAnimation()
                     // 当たり判定の表示を停止
                     hideHitImage()
+                    Toast.makeText(context, "デバイス接続が切断されました", Toast.LENGTH_SHORT).show()
                 }
                 bluetoothGatt?.close()
                 bluetoothGatt = null
@@ -251,9 +257,6 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                     return
                 }
                 Log.d(TAG, "Services discovered: ${gatt.services}")
-                val sharedPreferences = requireContext().getSharedPreferences("BLE_PREFS", Context.MODE_PRIVATE)
-                val serviceUUID = UUID.fromString(sharedPreferences.getString("SERVICE_UUID", ""))
-                val characteristicUUID = UUID.fromString(sharedPreferences.getString("CHARACTERISTIC_UUID", ""))
                 val service = gatt.getService(serviceUUID)
                 val characteristic = service.getCharacteristic(characteristicUUID)
                 if (characteristic == null) {
@@ -326,7 +329,6 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                     startMeasurementAnimation()
                 }
                 vis_cnt++
-                // sensorTextView.text = characteristic?.getStringValue(0) ?: return@runOnUiThread
             }
         }
 
