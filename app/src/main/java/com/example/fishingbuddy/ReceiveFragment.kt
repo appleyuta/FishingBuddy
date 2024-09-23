@@ -68,6 +68,16 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
     private val serviceUUID = UUID.fromString("a01d9034-21c3-4618-b9ee-d6d785b218c9")
     private val characteristicUUID = UUID.fromString("f98bb903-5c5a-4f46-a0f2-dbbcf658b445")
 
+    /* 計測中フラグ */
+    private var isMeasuring: Boolean = false
+
+    fun isMeasuring(): Boolean {
+        return isMeasuring
+    }
+    fun setMeasuring(bool : Boolean){
+        isMeasuring = bool
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -233,6 +243,8 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected from GATT server.")
+                // 計測終了
+                isMeasuring = false
                 activity?.runOnUiThread {
                     // 計測中の表示を停止
                     stopMeasurementAnimation()
@@ -274,6 +286,8 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                 gatt.writeDescriptor(descriptor)
 
                 Log.v("debug", "接続！")
+                // 計測開始
+                isMeasuring = true
                 activity?.runOnUiThread {
                     startMeasurementAnimation()
                 }
