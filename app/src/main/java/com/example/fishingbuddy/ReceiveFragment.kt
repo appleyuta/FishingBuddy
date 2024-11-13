@@ -16,6 +16,7 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.SoundPool
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -61,6 +62,10 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
     /** 当たり判定を表示するImageView */
     private lateinit var hitImageView: ImageView
 
+    /** 当たり判定時に音声を再生するsoundPool */
+    private lateinit var soundPool: SoundPool
+    private var soundId: Int = 0
+
     /* 当たり判定時の通知チャンネルID */
     private val CHANNEL_ID = "hit_notification_channel"
 
@@ -93,6 +98,9 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
         rssiTextView = view.findViewById(R.id.rssiTextView)
         hitImageView = view.findViewById(R.id.hitImageView)
         measurementImageView = view.findViewById(R.id.measurementImageView)
+
+        soundPool = SoundPool.Builder().setMaxStreams(1).build()
+        soundId = soundPool.load(requireContext(), R.raw.cuin, 1)
 
         // Initialize Bluetooth
         val bluetoothManager = requireContext().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -335,6 +343,8 @@ class ReceiveFragment : Fragment(R.layout.fragment_receive) {
                     showHitImage()
                     // 通知を表示
                     showNotification()
+                    // アタリ音源を再生
+                    soundPool.play(soundId, 1.0f, 1.0f, 0, 0, 1.0f)
                     vis_cnt = 0
                 } else if(vis_cnt >= 50) {
                     // アタリ画像の表示を停止
